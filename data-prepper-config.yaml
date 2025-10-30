@@ -6,7 +6,7 @@ otel-metrics-pipeline:
       health_check_service: true
       ssl: false
       unframed_requests: true
-      port: 4900
+      port: 4905
   buffer:
     bounded_blocking:
       buffer_size: 1024
@@ -22,12 +22,12 @@ otel-metrics-pipeline:
         hosts: ["http://opensearch:9200"]
         insecure: true
         index_type: custom
-        index: ss4o_metrics-otel-%{yyyy.MM.dd}
+        index: deneme-metrics-otel-%{yyyy.MM.dd}
         template_type: index-template
         template_content: >
           {
             "index_patterns": [
-              "ss4o_metrics-otel-*"
+              "deneme-metrics-otel-*"
             ],
             "template": {
               "mappings": {

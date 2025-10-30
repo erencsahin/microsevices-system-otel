@@ -64,7 +64,7 @@ services:
   # ============================================================================
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.91.0
+    image: otel/opentelemetry-collector:0.91.0
     container_name: otel-collector
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
@@ -94,7 +94,7 @@ services:
     container_name: data-prepper
     ports:
       - "21890:21890"
-      - "4900:4900"
+      - "4905:4900"
       - "2021:2021"
     volumes:
       - ./data-prepper-config.yaml:/usr/share/data-prepper/pipelines/pipelines.yaml
@@ -201,7 +201,7 @@ services:
       dockerfile: Dockerfile
     container_name: order-service
     ports:
-      - "8082:8082"
+      - "8084:8082"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/orderdb
