@@ -1,0 +1,129 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "*"
+
+  # Prometheus metrics receiver (optional)
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          scrape_interval: 10s
+          static_configs:
+            - targets: ['localhost:8888']
+
+processors:
+  # Batch processor - gruplar ve gönderir
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Memory limiter - aşırı bellek kullanımını önler
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Resource processor - ek attributeler ekler
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: "docker"
+        action: upsert
+      - key: service.namespace
+        value: "microservices"
+        action: upsert
+
+  # Attribute processor - trace verileri düzenler
+  attributes:
+    actions:
+      - key: http.url
+        action: delete
+      - key: http.target
+        from_attribute: http.path
+        action: insert
+
+exporters:
+  # Console exporter - debug için
+  logging:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  # OTLP exporter - Data Prepper'a gönder
+  otlp/data-prepper:
+    endpoint: data-prepper:21890
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # OpenSearch direct exporter (alternatif)
+  opensearch:
+    endpoints:
+      - http://opensearch:9200
+    logs_index: otel-logs
+    traces_index: otel-traces
+    metrics_index: otel-metrics
+    tls:
+      insecure: true
+    retry:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Prometheus exporter - metrics için
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    const_labels:
+      collector: "otel-collector"
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+
+  pipelines:
+    # Traces pipeline
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource, attributes]
+      exporters: [logging, otlp/data-prepper, opensearch]
+
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, batch, resource]
+      exporters: [logging, prometheus]
+
+    # Logs pipeline (optional)
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [logging, opensearch]
+
+  telemetry:
+    logs:
+      level: "info"
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888

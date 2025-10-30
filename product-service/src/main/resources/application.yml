@@ -1,0 +1,82 @@
+spring:
+  application:
+    name: product-service
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/productdb
+    username: admin
+    password: admin123
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  
+  profiles:
+    active: local
+
+server:
+  port: 8083
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      otlp:
+        enabled: true
+        url: http://localhost:4900/v1/metrics
+        step: 10s
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:21890/v1/traces
+
+otel:
+  resource:
+    attributes:
+      service.name: product-service
+  exporter:
+    otlp:
+      endpoint: http://localhost:21890
+  traces:
+    exporter: otlp
+  metrics:
+    exporter: otlp
+
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+  
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+management:
+  metrics:
+    export:
+      otlp:
+        url: http://data-prepper:4900/v1/metrics
+  otlp:
+    tracing:
+      endpoint: http://data-prepper:21890/v1/traces
+
+otel:
+  exporter:
+    otlp:
+      endpoint: http://data-prepper:21890
