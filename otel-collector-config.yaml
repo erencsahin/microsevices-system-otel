@@ -40,6 +40,19 @@ exporters:
       max_interval: 30s
       max_elapsed_time: 300s
 
+  # ---------- YENİ EKLENDİ (START) ----------
+  # OTLP exporter - Data Prepper'a gönder (Sadece Metrikler için)
+  otlp/data-prepper-metrics:
+    endpoint: data-prepper:4905 # Data Prepper'ın metrik portu
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  # ---------- YENİ EKLENDİ (END) ----------
+
 extensions:
   health_check:
     endpoint: 0.0.0.0:13133
@@ -59,14 +72,16 @@ service:
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      # Metrikler sadece loglanır (Prometheus kaldırıldı)
-      exporters: [logging]
+      # ---------- GÜNCELLENDİ (START) ----------
+      # Metrikler loglanır VE data-prepper'a gönderilir
+      exporters: [logging, otlp/data-prepper-metrics]
+      # ---------- GÜNCELLENDİ (END) ----------
 
     # Logs pipeline (optional)
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      # Loglar sadece loglanır (OpenSearch kaldırıldı)
+      # Loglar sadece loglanır
       exporters: [logging]
 
   telemetry:

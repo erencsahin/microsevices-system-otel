@@ -1,10 +1,6 @@
 version: '3.8'
 
 services:
-  # ============================================================================
-  # INFRASTRUCTURE LAYER - En temel servisler
-  # ============================================================================
-
   postgres:
     image: postgres:15-alpine
     container_name: postgres-db
@@ -19,12 +15,6 @@ services:
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     networks:
       - microservices-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     restart: unless-stopped
 
   opensearch:
@@ -51,17 +41,7 @@ services:
       - "9600:9600"
     networks:
       - microservices-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
     restart: unless-stopped
-
-  # ============================================================================
-  # OBSERVABILITY LAYER - Monitoring altyapısı
-  # ============================================================================
 
   otel-collector:
     image: otel/opentelemetry-collector:0.91.0
@@ -70,23 +50,16 @@ services:
     volumes:
       - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
-      - "8888:8888"   # Prometheus metrics
-      - "8889:8889"   # Prometheus exporter
-      - "13133:13133" # Health check
-      - "55679:55679" # ZPages
+      - "4317:4317"
+      - "4318:4318"
+      - "8888:8888"
+      - "8889:8889"
+      - "13133:13133"
+      - "55679:55679"
     networks:
       - microservices-network
     depends_on:
-      opensearch:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:13133"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      - opensearch
     restart: unless-stopped
 
   data-prepper:
@@ -94,7 +67,7 @@ services:
     container_name: data-prepper
     ports:
       - "21890:21890"
-      - "4905:4900"
+      - "4905:4905"
       - "2021:2021"
     volumes:
       - ./data-prepper-config.yaml:/usr/share/data-prepper/pipelines/pipelines.yaml
@@ -102,14 +75,7 @@ services:
     networks:
       - microservices-network
     depends_on:
-      opensearch:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:21890"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+      - opensearch
     restart: unless-stopped
 
   opensearch-dashboards:
@@ -123,19 +89,8 @@ services:
     networks:
       - microservices-network
     depends_on:
-      opensearch:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      - opensearch
     restart: unless-stopped
-
-  # ============================================================================
-  # APPLICATION LAYER - Mikroservisler
-  # ============================================================================
 
   user-service:
     build:
@@ -149,21 +104,11 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/userdb
       - SPRING_DATASOURCE_USERNAME=admin
       - SPRING_DATASOURCE_PASSWORD=admin123
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - OTEL_SERVICE_NAME=user-service
     networks:
       - microservices-network
     depends_on:
-      postgres:
-        condition: service_healthy
-      otel-collector:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      - postgres
+      - otel-collector
     restart: unless-stopped
 
   product-service:
@@ -178,21 +123,11 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/productdb
       - SPRING_DATASOURCE_USERNAME=admin
       - SPRING_DATASOURCE_PASSWORD=admin123
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - OTEL_SERVICE_NAME=product-service
     networks:
       - microservices-network
     depends_on:
-      postgres:
-        condition: service_healthy
-      otel-collector:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      - postgres
+      - otel-collector
     restart: unless-stopped
 
   order-service:
@@ -209,30 +144,14 @@ services:
       - SPRING_DATASOURCE_PASSWORD=admin123
       - PRODUCT_SERVICE_URL=http://product-service:8083
       - USER_SERVICE_URL=http://user-service:8081
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - OTEL_SERVICE_NAME=order-service
     networks:
       - microservices-network
     depends_on:
-      postgres:
-        condition: service_healthy
-      otel-collector:
-        condition: service_healthy
-      user-service:
-        condition: service_healthy
-      product-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      - postgres
+      - otel-collector
+      - user-service
+      - product-service
     restart: unless-stopped
-
-  # ============================================================================
-  # GATEWAY LAYER - En üst katman
-  # ============================================================================
 
   api-gateway:
     build:
@@ -246,25 +165,13 @@ services:
       - USER_SERVICE_URL=http://user-service:8081
       - ORDER_SERVICE_URL=http://order-service:8082
       - PRODUCT_SERVICE_URL=http://product-service:8083
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - OTEL_SERVICE_NAME=api-gateway
     networks:
       - microservices-network
     depends_on:
-      otel-collector:
-        condition: service_healthy
-      user-service:
-        condition: service_healthy
-      product-service:
-        condition: service_healthy
-      order-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      - otel-collector
+      - user-service
+      - product-service
+      - order-service
     restart: unless-stopped
 
 networks:

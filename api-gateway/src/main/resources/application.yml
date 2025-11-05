@@ -1,7 +1,7 @@
 spring:
   application:
     name: api-gateway
-  
+
   cloud:
     gateway:
       routes:
@@ -9,93 +9,36 @@ spring:
           uri: http://localhost:8081
           predicates:
             - Path=/api/users/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: userServiceCircuitBreaker
-                fallbackUri: forward:/fallback/users
-        
+
         - id: product-service
           uri: http://localhost:8083
           predicates:
             - Path=/api/products/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: productServiceCircuitBreaker
-                fallbackUri: forward:/fallback/products
-        
+
         - id: order-service
           uri: http://localhost:8082
           predicates:
             - Path=/api/orders/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: orderServiceCircuitBreaker
-                fallbackUri: forward:/fallback/orders
-      
-      default-filters:
-        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
-      
+
       globalcors:
         corsConfigurations:
           '[/**]':
             allowedOrigins: "*"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - PATCH
-              - OPTIONS
+            allowedMethods: [GET, POST, PUT, DELETE, PATCH, OPTIONS]
             allowedHeaders: "*"
-  
+
   profiles:
     active: local
 
 server:
   port: 8080
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,prometheus,gateway
-  metrics:
-    export:
-      otlp:
-        enabled: false
-        url: http://localhost:4900/v1/metrics
-        step: 10s
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-  tracing:
-    sampling:
-      probability: 1.0
-  otlp:
-    tracing:
-      endpoint: http://localhost:21890/v1/traces
-
-otel:
-  resource:
-    attributes:
-      service.name: api-gateway
-  exporter:
-    otlp:
-      endpoint: http://localhost:21890
-  traces:
-    exporter: otlp
-  metrics:
-    exporter: otlp
-
 ---
 spring:
   config:
     activate:
       on-profile: docker
-  
+
   cloud:
     gateway:
       routes:
@@ -103,42 +46,13 @@ spring:
           uri: ${USER_SERVICE_URL}
           predicates:
             - Path=/api/users/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: userServiceCircuitBreaker
-                fallbackUri: forward:/fallback/users
-        
+
         - id: product-service
           uri: ${PRODUCT_SERVICE_URL}
           predicates:
             - Path=/api/products/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: productServiceCircuitBreaker
-                fallbackUri: forward:/fallback/products
-        
+
         - id: order-service
           uri: ${ORDER_SERVICE_URL}
           predicates:
             - Path=/api/orders/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: orderServiceCircuitBreaker
-                fallbackUri: forward:/fallback/orders
-
-management:
-  metrics:
-    export:
-      otlp:
-        url: http://data-prepper:4900/v1/metrics
-  otlp:
-    tracing:
-      endpoint: http://data-prepper:21890/v1/traces
-
-otel:
-  exporter:
-    otlp:
-      endpoint: http://data-prepper:21890
