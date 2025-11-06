@@ -352,7 +352,6 @@ raw-pipeline:
     - opensearch:
         hosts: ["http://opensearch:9200"]
         insecure: true
-        trace_analytics_raw: true
         index_type: trace-analytics-raw
 
 service-map-pipeline:
@@ -370,5 +369,4 @@ service-map-pipeline:
     - opensearch:
         hosts: ["http://opensearch:9200"]
         insecure: true
-        trace_analytics_service_map: true
         index_type: trace-analytics-service-map

@@ -24,10 +24,8 @@ processors:
 
 exporters:
   # Console exporter - debug için
-  logging:
+  debug:
     verbosity: detailed
-    sampling_initial: 5
-    sampling_thereafter: 200
 
   # OTLP exporter - Data Prepper'a gönder (Sadece Trace'ler için)
   otlp/data-prepper:
@@ -65,28 +63,22 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      # Trace'ler loglanır VE data-prepper'a gönderilir
-      exporters: [logging, otlp/data-prepper]
+      exporters: [debug, otlp/data-prepper]
 
     # Metrics pipeline
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      # ---------- GÜNCELLENDİ (START) ----------
-      # Metrikler loglanır VE data-prepper'a gönderilir
-      exporters: [logging, otlp/data-prepper-metrics]
-      # ---------- GÜNCELLENDİ (END) ----------
+      exporters: [debug, otlp/data-prepper-metrics]
 
     # Logs pipeline (optional)
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      # Loglar sadece loglanır
-      exporters: [logging]
+      exporters: [debug]
 
   telemetry:
     logs:
       level: "info"
     metrics:
       level: detailed
-      address: 0.0.0.0:8888
